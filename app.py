@@ -112,6 +112,7 @@ def reference(model: str, dataset: str):
         random_indexes = random.sample(range(len(fashionIQ_val_triplets)), k=30)
         triplets = np.array(fashionIQ_val_triplets)[random_indexes]
         names = [triplet['candidate'] for triplet in triplets]
+        text_names = [triplet['captions'][0] for triplet in triplets]
     else:
         return redirect(url_for('choice'))
     if model == 'text_retrieval':
@@ -151,7 +152,7 @@ def relative_caption(model: str, dataset: str, reference_name: str):
 @app.route('/<string:model>/<string:dataset>/<string:reference_name>/<string:old_caption>', methods=['POST'])
 @app.route('/<string:model>/<string:dataset>/<string:reference_name>', methods=['POST'])
 # @app.route('/<string:model>/<string:dataset>/<string:old_caption>', methods=['POST'])
-def custom_caption_text(model: str, dataset: str, reference_name: Optional[str] = None, old_caption: Optional[str] = None):
+def custom_caption(model: str, dataset: str, reference_name: Optional[str] = None, old_caption: Optional[str] = None):
     """
     Get the custom caption with a POST method and makes the render of 'results' template
     :param old_caption: caption of the previous query
@@ -238,6 +239,7 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
     """
 
     target_name = ""
+    print('fashionIQ index name', fashionIQ_dress_index_names)
 
     # Assign the correct Fashion category to the reference image
     if model == 'compose' or model == 'image_retrieval':
