@@ -1,0 +1,26 @@
+{% extends "base.html" %} {% block content %}
+<h1 class="text-center p-3"> Choose suitable image</h1>
+<div class="w-100">
+    <section>
+        <div class="container">
+            <div class="row no-gutters justify-content-around">
+                <div class="col-xs-11 col-sm-11 col-md-6 col-lg-6 bg-image my-2 text-center">
+                    <h2 class="text-center p-1">Reference Image</h2>
+                    <a class="bg-image">
+                        <img class="img-fluid image" src="{{ url_for('get_image', dataset=dataset, image_name=reference_name) }}" alt="Frame overview">
+                    </a>
+                    <div class="text-center center-block w-100 border">
+                        <form method="POST">
+                            <label for="custom_caption"><h4>Press submit button</h4></label>
+                            <input type="hidden" id="custom_image" name='custom_image' value="Giá trị mặc định">
+                            <input class="btn btn-primary" type="submit" value="Submit">
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+</div>
+
+{% endblock content %}
