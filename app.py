@@ -172,7 +172,11 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=' '))
     else:
         caption = request.form['custom_caption']
-        reference_name = caption 
+        reference_name = caption
+        global selection
+        selection = ""
+        if 'fashion_selection' in request.form:
+            selection= request.form['fashion_selection']
         return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=caption))
 
 
@@ -206,7 +210,8 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
                                                                                    reference_name, model)
     elif dataset == "fashionIQ":
         # Compute fashionIQ results
-        sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model)
+        sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model, selection)
+
 
     else:
         return redirect(url_for('choice'))
@@ -227,7 +232,7 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
 
 
 
-def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str, model: str) -> Tuple[
+def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str, model: str, selection: str) -> Tuple[
     np.array, str]:
     """
     Combine visual-text features and compute fashionIQ results
@@ -239,8 +244,8 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
     """
 
     target_name = ""
-    print('fashionIQ index name', fashionIQ_dress_index_names)
-
+    if model  == 'text_retrieval':
+        dress_type = selection
     # Assign the correct Fashion category to the reference image
     if model == 'compose' or model == 'image_retrieval':
         if reference_name in fashionIQ_dress_index_names:
@@ -259,11 +264,12 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
                 raise ValueError()
 
     # Check if the query belongs to the validation set and get query info
-    for triplet in fashionIQ_val_triplets:
-        if triplet['candidate'] == reference_name:
-            if f"{triplet['captions'][0].strip('?,. ').capitalize()} and {triplet['captions'][1].strip('?,. ')}" == caption:
-                target_name = triplet['target']
-                dress_type = triplet['dress_type']
+    if model == 'image_retrieval' or model == 'compose':
+        for triplet in fashionIQ_val_triplets:
+            if triplet['candidate'] == reference_name:
+                if f"{triplet['captions'][0].strip('?,. ').capitalize()} and {triplet['captions'][1].strip('?,. ')}" == caption:
+                    target_name = triplet['target']
+                    dress_type = triplet['dress_type']
 
     # Get the right category index features
     if dress_type == "dress":
@@ -314,7 +320,7 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
             predicted_features = reference_features.squeeze(0)
     elif model == 'text_retrieval':
         with torch.no_grad(): 
-            text_features = clip_model.encode_text(text_inputs).squeeze(0)
+            predicted_features = clip_model.encode_text(text_inputs).squeeze(0)
     # Sort the results and get the top 50
             
     index_features = F.normalize(index_features)
@@ -398,37 +404,6 @@ def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, ref
 
     return sorted_group_names, sorted_index_names, target_name
 
-
-# def test_text_search():
-#     # _load_assets() 
-#     load_cirr_assets()
-#     global clip_model
-    
-
-#     # clip_model, _ = clip.load("RN50x4")
-#     # clip_model = clip_model.eval().to(device)
-
-#     clip_model, _ = clip.load("RN50x4", device=device, jit=False)
-#     saved_state_dict = torch.load('E:\\UIT\\UIT_HK_V\\TVTTDPT\\đồ án\\CLIP4CirDemo\\model\\cirr_clip_RN50x4_fullft.pt', map_location=device)
-#     clip_model.load_state_dict(saved_state_dict["CLIP"])
-#     clip_model = clip_model.float().eval()
-
-#     text_query = "The pencilcase is closed, and colorful"
-#     text_inputs = clip.tokenize(text_query, truncate=True).to(device)
-
-#     index_features = cirr_index_features.to(device)
-#     index_names = cirr_index_names
-
-#     with torch.no_grad():
-#         text_features = clip_model.encode_text(text_inputs).squeeze(0)
-
-#     index_features = F.normalize(index_features)
-#     cos_similarity = index_features @ text_features.T
-#     sorted_indices = torch.topk(cos_similarity, 5, largest=True).indices.cpu()
-#     sorted_index_names = np.array(index_names)[sorted_indices].flatten()
-#     # sorted_index_names = np.delete(sorted_index_names, np.where(sorted_index_names == reference_name))
-
-#     print(sorted_index_names)
 
 @app.route('/get_image/<string:image_name>')
 @app.route('/get_image/<string:image_name>/<int:dim>')
@@ -642,80 +617,4 @@ def delete_uploaded_images():
 if __name__ == '__main__':
 
     app.run(host="0.0.0.0", port=5000)
-    # def compute_cirr_image_results(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str) -> Tuple[
-    # Union[list, object], np.array, str]:
-    #     """
-    #     Combine visual-text features and compute CIRR results
-    #     :param caption: relative caption #xoa cai nay
-    #     :param combiner: CIRR Combiner network
-    #     :param n_retrieved: number of images to retrieve
-    #     :param reference_name: reference image name
-    #     :return: Tuple made of: 1) top group index names (when known) 2)top 'n_retrieved' index names , 3) target_name (when known)
-    #     """
-    #     target_name = ""
-    #     group_members = ""
-    #     sorted_group_names = ""
-
-    #     index_features = cirr_index_features.to(device)
-    #     index_names = cirr_index_names
-
-    #     # Check if the query belongs to the validation set and get query info
-    #     for triplet in cirr_val_triplets:
-    #         if triplet['reference'] == reference_name and triplet['caption'] == caption:
-    #             target_name = triplet['target_hard']
-    #             group_members = triplet['img_set']['members']
-    #             index_features = cirr_val_index_features.to(device)
-    #             index_names = cirr_val_index_names
-    
-
-    #     print('index name', target_name)
-    #     try:
-    #         reference_index = index_names.index(reference_name)
-    #         reference_features = index_features[reference_index].unsqueeze(0)
-    #     except Exception:  # raise an exception if the reference image has been uploaded by the user
-    #         image_path = app.config['UPLOAD_FOLDER'] / 'cirr' / reference_name
-    #         pil_image = PIL.Image.open(image_path).convert('RGB')
-    #         image = targetpad_transform(1.25, clip_model.visual.input_resolution)(pil_image).to(device)
-    #         reference_features = clip_model.encode_image(image.unsqueeze(0))
-
-    #     with torch.no_grad():
-    #     # #     text_features = clip_model.encode_text(text_inputs)
-    #         predicted_features = reference_features.squeeze(0)
-
-    #     # Sort the results and get the top 50
-    #     index_features = F.normalize(index_features)
-    #     cos_similarity = index_features @ predicted_features.T
-    #     sorted_indices = torch.topk(cos_similarity, n_retrieved, largest=True).indices.cpu()
-    #     sorted_index_names = np.array(index_names)[sorted_indices].flatten()
-    #     sorted_index_names = np.delete(sorted_index_names, np.where(sorted_index_names == reference_name))
-
-    #     # If it is a validation set query compute also the group results
-    #     if group_members != "":
-    #         group_indices = [index_names.index(name) for name in group_members]
-    #         group_features = index_features[group_indices]
-    #         cos_similarity = group_features #@ predicted_features.T
-    #         group_sorted_indices = torch.argsort(cos_similarity, descending=True).cpu()
-    #         sorted_group_names = np.array(group_members)[group_sorted_indices]
-    #         sorted_group_names = np.delete(sorted_group_names, np.where(sorted_group_names == reference_name)).tolist()
-
-    #     return sorted_group_names, sorted_index_names, target_name
-    # def compute_results(dataset: str, reference_name: str, caption: str):
-    #     """
-    #     Compute the results of a given query and makes the render of 'results.html' template
-    #     :param dataset: dataset of the query
-    #     :param reference_name: reference image name
-    #     :param caption: relative caption
-    #     """
-    #     n_retrieved = 50  # retrieve first 50 results since for both dataset the R@50 is the broader scale metric
-
-    #     sorted_group_names = ""
-
-    #     sorted_group_image_names, sorted_index_image_names, target_image_name = compute_cirr_image_results(caption, clip_model,
-    #                                                                                             n_retrieved, reference_name)
-    #     # return sorted_group_image_names, sorted_index_image_names, target_image_name
-    #     print(target_image_name)
-    #     print(sorted_index_image_names)
-    # clip_model, clip_preprocess = clip.load("RN50x4")
-    # clip_model = clip_model.eval().to(device)
-    # load_cirr_assets()
-    # compute_results('cirr', 'dev-1028-1-img1', 'remove two bottles')
+ 
