@@ -18,7 +18,14 @@
                             <h4 class=" text-center border"> {{ caption }}</h4>#} {# </div>#}
                         <div class="text-center center-block w-100 border col-12 p-0 my-auto">
                             <form method="POST">
-                                <textarea class='form-control' required="required" style="font-size: x-large" id='custom_caption' name='custom_caption' rows="3" type="text" placeholder="Insert your caption here">{{ caption }}</textarea>
+                                <textarea class='form-control' required="required" style="font-size: x-large" id='custom_caption' name='custom_caption' rows="3" type="text" placeholder="Insert your caption here">{{ caption }}</textarea> {% if dataset
+                                == "fashionIQ" %}
+                                <select class="custom-select custom-select-sm" name="fashion_selection" style="background-color: #5C9BD9; border: #5C9BD9; color: black;">
+                                            <option selected>Open this select menu</option>
+                                            <option value="dress">dress</option>
+                                            <option value="shirt">shirt</option>
+                                            <option value="toptee">toptee</option>
+                                    </select> {% endif %}
                                 <input class="btn btn-primary" type="submit" value="Submit">
                             </form>
                         </div>

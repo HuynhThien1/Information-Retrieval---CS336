@@ -32,6 +32,7 @@ else:
 
 global model
 
+
 @app.route('/')
 
 def model_choice():
@@ -177,6 +178,7 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         selection = ""
         if 'fashion_selection' in request.form:
             selection= request.form['fashion_selection']
+            # print('selection', selection)
         return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=caption))
 
 
@@ -245,7 +247,8 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
 
     target_name = ""
     if model  == 'text_retrieval':
-        dress_type = selection
+        dress_type = str(selection)
+        print('selection', selection)
     # Assign the correct Fashion category to the reference image
     if model == 'compose' or model == 'image_retrieval':
         if reference_name in fashionIQ_dress_index_names:
@@ -617,4 +620,5 @@ def delete_uploaded_images():
 if __name__ == '__main__':
 
     app.run(host="0.0.0.0", port=5000)
+
  
