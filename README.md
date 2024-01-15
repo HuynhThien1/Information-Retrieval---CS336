@@ -53,9 +53,9 @@ conda install -y -c pytorch pytorch=1.7.1 torchvision=0.8.2
 pip install flask==2.0.2
 pip install git+https://github.com/openai/CLIP.git
 pip install Werkzeug==2.0.1
-```sh
-## Structure
+```
 
+## Dataset
 Please organize your code following this structure: 
 
 ```
