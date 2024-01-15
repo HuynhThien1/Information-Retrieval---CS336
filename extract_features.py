@@ -1,20 +1,28 @@
 import pickle
 from typing import Union
-
+import numpy as np
 import clip
 import torch
+import os
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+from datetime import datetime
 from data_utils import FashionIQDataset, targetpad_transform, CIRRDataset, data_path
 from utils import collate_fn
+from qdrant.img_data import ImageData
+from PIL import Image
+from pathlib import Path
+from qdrant.provider import db_handler
+
+temp_path = Path(__file__).absolute().parent.absolute().parent 
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
+    data_type = torch.float16
 else:
     device = torch.device("cpu")
-
+    data_type = torch.float32
 
 def extract_and_save_index_features(dataset: Union[CIRRDataset, FashionIQDataset], clip_model: nn.Module,
                                     feature_dim: int, file_name: str):
@@ -75,5 +83,91 @@ def main():
         extract_and_save_index_features(test_dataset, clip_model, feature_dim, f'fashionIQ_test_{dress_type}')
 
 
+def qdrant_index():
+
+    vector_idx = 0
+    cirr_pt_file = [f for f in os.listdir(data_path) if 'cirr' in f and 'pt' in f]
+    for f in cirr_pt_file:
+        
+        cirr_index_feature = torch.load(data_path / f, map_location=device).type(data_type).cpu()
+        
+        cirr_index_feature = cirr_index_feature.numpy()
+        if 'test' in f:
+            op = 'test1'
+            with open(data_path / 'cirr_test_index_names.pkl', 'rb') as temp:
+                cirr_index_name = pickle.load(temp)
+        else:
+            op = 'dev'
+            with open(data_path / 'cirr_val_index_names.pkl', 'rb') as temp:
+                cirr_index_name = pickle.load(temp)
+
+        
+        for idx, row in enumerate(cirr_index_feature):
+            imgdata = ImageData(id= vector_idx,
+                                index_date=datetime.now(),
+                                image_vector=row,
+                                thumbnail=cirr_index_name[idx],
+                                dataset="cirr")
+        
+            try:
+                img_path = os.path.join(temp_path,'cirr_dataset',op,cirr_index_name[idx]+'.png')
+                
+                img = Image.open(img_path)
+                imgdata.width = img.width
+                imgdata.height = img.height
+                imgdata.aspect_ratio = float(img.width) / img.height
+            except:
+                pass
+            
+            try:
+                db_handler.insertItems(imgdata)
+            except Exception as e:
+                print(e)
+                
+            vector_idx += 1
+
+    fashion_pt_file = [f for f in os.listdir(data_path) if  'fashion' in f and '.pt' in f]
+
+    dress_types = ['dress', 'toptee', 'shirt']
+
+    for f in fashion_pt_file:
+        fashion_index_feature = torch.load(data_path / f, map_location=device).type(data_type).cpu()
+        fashion_index_feature = fashion_index_feature.numpy()
+
+        dress_type = [t for t in dress_types if t in f]
+        if 'test' in f:
+            with open(os.path.join(data_path,f"fashionIQ_test_{dress_type[0]}_index_names.pkl"),'rb') as temp:
+                fashion_index_name = pickle.load(temp)
+
+        elif 'val' in f:
+            with open(os.path.join(data_path,f"fashionIQ_val_{dress_type[0]}_index_names.pkl"),'rb') as temp:
+                fashion_index_name = pickle.load(temp)
+        
+
+        
+        for idx, row in enumerate(fashion_index_feature):
+            imgdata = ImageData(id= vector_idx,
+                                index_date=datetime.now(),
+                                image_vector=row,
+                                thumbnail=fashion_index_name[idx],
+                                dataset='fashionIQ')
+            try:
+                img_path = os.path.join(temp_path,'fashionIQ_dataset','images',fashion_index_name[idx]+'.png')
+                img = Image.open(img_path)
+                imgdata.width = img.width
+                imgdata.height = img.height
+                imgdata.aspect_ratio = float(img.width) / img.height
+            except:
+                pass
+        
+            try:
+                db_handler.insertItems(imgdata)
+            except Exception as e:
+                print(e)
+
+            vector_idx += 1
+    
+        
+
 if __name__ == '__main__':
-    main()
+    qdrant_index()

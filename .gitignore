@@ -6,6 +6,9 @@ cirr_dataset
 fashionIQ_dataset
 uploaded_files
 # data
+### Qdrant ###
+aliases
+collections
 ### Flask ###
 instance/*
 !instance/.gitignore
