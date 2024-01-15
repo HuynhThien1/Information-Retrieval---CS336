@@ -1,11 +1,12 @@
-from typing import Optional
-
+import numpy as np
 import qdrant_client
+from typing import Optional
 from qdrant_client.http import models
 from qdrant_client import QdrantClient
 from config.config import configure as cf
 from .img_data import ImageData
-
+from .search_result import SearchResult
+from .query_params import FilterParams
 class VectorDbHandler:
     IMG_VECTOR = "image_vector"
     AVAILABLE_POINT_TYPES = [models.Record,models.ScoredPoint,models.PointStruct]
@@ -27,11 +28,13 @@ class VectorDbHandler:
         print(res)
         return res[0]
     
-    def query_search(self, query_vector,top_k = 50,skip=0) -> list[Search]:
+    def query_search(self, query_vector,top_k = 50, filter_param: Optional[FilterParams] = None) -> "list[SearchResult]":
         res = self._client.search(collection_name=self.collection_name,
-                                query_vector=("image_vector",[]),
-                                limit=10)
-        print(res)
+                                query_vector=(self.IMG_VECTOR,query_vector),
+                                limit=top_k,
+                                with_payload=True,
+                                query_filter = self._get_filters_by_filter_param(filter_param))
+        return [self._get_search_result_from_result_point(point) for point in res]
 
 
     def delItems(self, points):
@@ -74,5 +77,66 @@ class VectorDbHandler:
             payload=img_data.payload,
             vector = cls._get_vector_from_img_data(img_data).vector
         )
-    
-    
+    @classmethod
+    def _get_img_data_from_point(cls, point: models.ScoredPoint) -> ImageData:
+        if point.vector:
+            image_vector = np.array(point.vector[cls.IMG_VECTOR], dtype=np.float32)
+        
+        return (ImageData.from_payload(point.id,
+                                        point.payload,
+                                        image_vector))
+
+    @classmethod
+    def _get_search_result_from_result_point(cls,point:models.ScoredPoint) -> SearchResult:
+        return SearchResult(img_data= cls._get_img_data_from_point(point) ,score=point.score)
+
+    @staticmethod
+    def _get_filters_by_filter_param(filter_param: FilterParams) -> models.Filter:
+        if filter_param is None:
+            return None
+        
+        filters = []
+
+        if len(filter_param.thumbnail_list) != 0:
+            filters.append(models.FieldCondition(
+                key="thumbnail",
+                match=models.MatchAny(any=filter_param.thumbnail_list)
+            ))
+        if filter_param.dataset is not None:
+            filters.append(models.FieldCondition(
+                key="dataset",
+                match = models.MatchValue(
+                    value=filter_param.dataset
+                )
+            ))
+
+        if filter_param.min_height is not None:
+            filters.append(models.FieldCondition(
+                key="height",
+                range=models.Range(
+                    gte=filter_param.min_height
+                )
+            ))
+
+        if filter_param.min_width is not None:
+            filters.append(models.FieldCondition(
+                key="width",
+                range=models.Range(
+                    gte=filter_param.min_width
+                )
+            ))
+
+        if filter_param.min_aspect_ratio is not None:
+            filters.append(models.FieldCondition(
+                key="aspect_ratio",
+                range=models.Range(
+                    gte=filter_param.min_aspect_ratio,
+                    lte=filter_param.max_aspect_ratio
+                )
+            ))
+
+        if not filters:
+            return None
+        return models.Filter(
+            must= filters
+        )

@@ -12,7 +12,7 @@ def parse_args():
     parser.add_argument('--qdrant-index',dest= "qdrant_index", action='store_true', help="store feature in qdrant")
     parser.add_argument('--delete-index',dest='delete_index',action='store_true')
     parser.add_argument('--retrieve-id',dest='retrieve_id',type=int)
-    parser.add_argument('--search', action='store_true')
+
     return parser.parse_args()
 if __name__ == '__main__':
     
@@ -29,5 +29,4 @@ if __name__ == '__main__':
     
     elif args.retrieve_id is not None:
         db_handler.retrieve_by_id(args.retrieve_id,True,True)
-    elif args.search:
-        db_handler.search()
+

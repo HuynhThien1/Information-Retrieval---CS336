@@ -8,14 +8,15 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from datetime import datetime
-from data_utils import FashionIQDataset, targetpad_transform, CIRRDataset, data_path
+from data_utils import FashionIQDataset, targetpad_transform, CIRRDataset, data_path, server_base_path
 from utils import collate_fn
 from qdrant.img_data import ImageData
 from PIL import Image
 from pathlib import Path
 from qdrant.provider import db_handler
 
-temp_path = Path(__file__).absolute().parent.absolute().parent 
+
+#server_base_path = Path(__file__).absolute().parent.absolute().parent
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -110,7 +111,7 @@ def qdrant_index():
                                 dataset="cirr")
         
             try:
-                img_path = os.path.join(temp_path,'cirr_dataset',op,cirr_index_name[idx]+'.png')
+                img_path = os.path.join(server_base_path,'cirr_dataset',op,cirr_index_name[idx]+'.png')
                 
                 img = Image.open(img_path)
                 imgdata.width = img.width
@@ -152,7 +153,7 @@ def qdrant_index():
                                 thumbnail=fashion_index_name[idx],
                                 dataset='fashionIQ')
             try:
-                img_path = os.path.join(temp_path,'fashionIQ_dataset','images',fashion_index_name[idx]+'.png')
+                img_path = os.path.join(server_base_path,'fashionIQ_dataset','images',fashion_index_name[idx]+'.png')
                 img = Image.open(img_path)
                 imgdata.width = img.width
                 imgdata.height = img.height
