@@ -28,6 +28,7 @@ class VectorDbHandler:
         print(res)
         return res[0]
     
+
     def query_search(self, query_vector,top_k = 50, filter_param: Optional[FilterParams] = None) -> "list[SearchResult]":
         res = self._client.search(collection_name=self.collection_name,
                                 query_vector=(self.IMG_VECTOR,query_vector),
@@ -35,7 +36,6 @@ class VectorDbHandler:
                                 with_payload=True,
                                 query_filter = self._get_filters_by_filter_param(filter_param))
         return [self._get_search_result_from_result_point(point) for point in res]
-
 
     def delItems(self, points):
         # points = list(range(15))

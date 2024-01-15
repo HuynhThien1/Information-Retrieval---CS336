@@ -15,8 +15,8 @@ from PIL import Image
 from pathlib import Path
 from qdrant.provider import db_handler
 
+#server_base_path = Path(__file__).absolute().parent.absolute().parent 
 
-#server_base_path = Path(__file__).absolute().parent.absolute().parent
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
