@@ -1,0 +1,12 @@
+
+pydantic
+pydantic-settings
+clip
+torch
+torchvision
+
+numpy
+flask
+
+qdrant-client
+
