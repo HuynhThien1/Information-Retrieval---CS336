@@ -27,11 +27,11 @@ class VectorDbHandler:
         print(res)
         return res[0]
     
-    def query_search(self, query_vector,top_k = 50,skip=0) -> list[Search]:
-        res = self._client.search(collection_name=self.collection_name,
-                                query_vector=("image_vector",[]),
-                                limit=10)
-        print(res)
+    # def query_search(self, query_vector,top_k = 50,skip=0) -> list[Search]:
+    #     res = self._client.search(collection_name=self.collection_name,
+    #                             query_vector=("image_vector",[]),
+    #                             limit=10)
+    #     print(res)
 
 
     def delItems(self, points):
