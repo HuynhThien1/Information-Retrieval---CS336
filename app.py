@@ -19,7 +19,8 @@ from werkzeug.utils import secure_filename
 
 from data_utils import targetpad_resize, targetpad_transform, server_base_path, data_path
 from model import Combiner
-
+from qdrant.provider import db_handler
+from qdrant.query_params import FilterParams
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = server_base_path / 'uploaded_files'
 
@@ -182,8 +183,8 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=caption))
 
 
-@app.route('/<string:model>/<string:dataset>/<string:reference_name>/<string:caption>')
-def results(model: str, dataset: str, reference_name: str, caption: str):
+@app.route('/<string:model>/<string:dataset>/<string:reference_name>/<string:caption>/<string:search_option>')
+def results(model: str, dataset: str, reference_name: str, caption: str, search_option: str):
     """
     Compute the results of a given query and makes the render of 'results.html' template
     :param dataset: dataset of the query
@@ -209,10 +210,10 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
     if dataset == 'cirr':
         # Compute CIRR results
         sorted_group_names, sorted_index_names, target_name = compute_cirr_results(caption, combiner, n_retrieved,
-                                                                                   reference_name, model)
+                                                                                   reference_name, model,search_option)
     elif dataset == "fashionIQ":
         # Compute fashionIQ results
-        sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model, selection)
+        sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model, selection,search_option)
 
 
     else:
@@ -234,7 +235,7 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
 
 
 
-def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str, model: str, selection: str) -> Tuple[
+def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str, model: str, selection: str, search_option:str) -> Tuple[
     np.array, str]:
     """
     Combine visual-text features and compute fashionIQ results
@@ -325,16 +326,21 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
         with torch.no_grad(): 
             predicted_features = clip_model.encode_text(text_inputs).squeeze(0)
     # Sort the results and get the top 50
-            
-    index_features = F.normalize(index_features)
-    cos_similarity = index_features @ predicted_features.T
-    sorted_indices = torch.topk(cos_similarity, n_retrieved, largest=True).indices.cpu()
-    sorted_index_names = np.array(index_names)[sorted_indices].flatten()
+    if search_option == 'torch':
+        index_features = F.normalize(index_features)
+        cos_similarity = index_features @ predicted_features.T
+        sorted_indices = torch.topk(cos_similarity, n_retrieved, largest=True).indices.cpu()
+        sorted_index_names = np.array(index_names)[sorted_indices].flatten()
 
+    elif search_option == 'qdrant':
+        filter_param = FilterParams(dataset='cirr')
+        query_result = db_handler.query_search(predicted_features,filter_param=filter_param)
+        sorted_index_names = np.array([point.img_data.thumbnail for point in query_result]).flatten()
+    
     return sorted_index_names, target_name
 
 
-def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str, model: str) -> Tuple[
+def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str, model: str, search_option:str) -> Tuple[
     Union[list, object], np.array, str]:
     """
     Combine visual-text features and compute CIRR results
@@ -388,97 +394,34 @@ def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, ref
             predicted_features = text_features.squeeze(0)
 
     # Sort the results and get the top 50
-    index_features = F.normalize(index_features)
-    cos_similarity = index_features @ predicted_features.T
-    sorted_indices = torch.topk(cos_similarity, n_retrieved, largest=True).indices.cpu()
-    sorted_index_names = np.array(index_names)[sorted_indices].flatten()
-    if model == 'compose' or model == 'image_retrieval':
-        sorted_index_names = np.delete(sorted_index_names, np.where(sorted_index_names == reference_name))
+    if search_option == 'torch':
+        index_features = F.normalize(index_features)
+        cos_similarity = index_features @ predicted_features.T
+        sorted_indices = torch.topk(cos_similarity, n_retrieved, largest=True).indices.cpu()
+        sorted_index_names = np.array(index_names)[sorted_indices].flatten()
 
-    # If it is a validation set query compute also the group results
-    if model == 'compose':
-        if group_members != "":
-            group_indices = [index_names.index(name) for name in group_members]
-            group_features = index_features[group_indices]
-            cos_similarity = group_features @ predicted_features.T
-            group_sorted_indices = torch.argsort(cos_similarity, descending=True).cpu()
-            sorted_group_names = np.array(group_members)[group_sorted_indices]
-            sorted_group_names = np.delete(sorted_group_names, np.where(sorted_group_names == reference_name)).tolist()
-
-    return sorted_group_names, sorted_index_names, target_name
-
-def compute_cirr_results_qdrant_search(caption: str, combiner: Combiner, n_retrieved: int, reference_name: str, model: str) -> Tuple[
-    Union[list, object], np.array, str]:
-    """
-    Combine visual-text features and compute CIRR results
-    :param caption: relative caption
-    :param combiner: CIRR Combiner network
-    :param n_retrieved: number of images to retrieve
-    :param reference_name: reference image name
-    :return: Tuple made of: 1) top group index names (when known) 2)top 'n_retrieved' index names , 3) target_name (when known)
-    """
-    target_name = ""
-    group_members = ""
-    sorted_group_names = ""
-
-    index_features = cirr_index_features.to(device)
-    index_names = cirr_index_names
-
-    # Check if the query belongs to the validation set and get query info
-    if model == 'compose':
-        for triplet in cirr_val_triplets:
-            if triplet['reference'] == reference_name and triplet['caption'] == caption:
-                target_name = triplet['target_hard']
-                group_members = triplet['img_set']['members']
-                index_features = cirr_val_index_features.to(device)
-                index_names = cirr_val_index_names
-
-    # Get visual features, extract textual features and compute combined features
-    if model == 'compose' or model == 'text_retrieval':
-        text_inputs = clip.tokenize(caption, truncate=True).to(device)
-    if model == 'compose' or model == 'image_retrieval':
-        try:
-            reference_index = index_names.index(reference_name)
-            reference_features = index_features[reference_index].unsqueeze(0)
-        except Exception:  # raise an exception if the reference image has been uploaded by the user
-            image_path = app.config['UPLOAD_FOLDER'] / 'cirr' / reference_name
-            pil_image = PIL.Image.open(image_path).convert('RGB')
-            image = targetpad_transform(1.25, clip_model.visual.input_resolution)(pil_image).to(device)
-            reference_features = clip_model.encode_image(image.unsqueeze(0))
-
-
-    #compute predicted feature with three methods
-    if model == 'compose':
-        with torch.no_grad():
-            text_features = clip_model.encode_text(text_inputs)
-            predicted_features = combiner.combine_features(reference_features, text_features).squeeze(0)
-    elif model == 'image_retrieval':
-        with torch.no_grad():
-            predicted_features = reference_features.squeeze(0)
-    elif model == 'text_retrieval':
-        with torch.no_grad():
-            text_features = clip_model.encode_text(text_inputs)
-            predicted_features = text_features.squeeze(0)
-
-    # Sort the results and get the top 50
-    index_features = F.normalize(index_features)
+    elif search_option == 'qdrant':
+        filter_param = FilterParams(dataset='cirr')
+        query_result = db_handler.query_search(predicted_features,filter_param=filter_param)
+        sorted_index_names = np.array([point.img_data.thumbnail for point in query_result]).flatten()
     
-
-
-    cos_similarity = index_features @ predicted_features.T
-    sorted_indices = torch.topk(cos_similarity, n_retrieved, largest=True).indices.cpu()
-    sorted_index_names = np.array(index_names)[sorted_indices].flatten()
     if model == 'compose' or model == 'image_retrieval':
         sorted_index_names = np.delete(sorted_index_names, np.where(sorted_index_names == reference_name))
 
     # If it is a validation set query compute also the group results
     if model == 'compose':
         if group_members != "":
-            group_indices = [index_names.index(name) for name in group_members]
-            group_features = index_features[group_indices]
-            cos_similarity = group_features @ predicted_features.T
-            group_sorted_indices = torch.argsort(cos_similarity, descending=True).cpu()
-            sorted_group_names = np.array(group_members)[group_sorted_indices]
+            if search_option == 'torch':
+                group_indices = [index_names.index(name) for name in group_members]
+                group_features = index_features[group_indices]
+                cos_similarity = group_features @ predicted_features.T
+                group_sorted_indices = torch.argsort(cos_similarity, descending=True).cpu()
+                sorted_group_names = np.array(group_members)[group_sorted_indices]
+
+            elif search_option == 'qdrant':
+                group_filter_param = FilterParams(thumbnail_list=group_members, dataset='cirr')
+                group_query_result = db_handler.query_search(predicted_features,filter_param=group_filter_param)
+                sorted_group_names = np.array([point.img_data.thumbnail for point in group_query_result])
             sorted_group_names = np.delete(sorted_group_names, np.where(sorted_group_names == reference_name)).tolist()
 
     return sorted_group_names, sorted_index_names, target_name
@@ -693,7 +636,5 @@ def delete_uploaded_images():
 
 
 if __name__ == '__main__':
-
+    # test_text_search()
     app.run(host="0.0.0.0", port=5000)
-
- 
