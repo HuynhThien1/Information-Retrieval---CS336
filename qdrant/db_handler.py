@@ -81,7 +81,8 @@ class VectorDbHandler:
     def _get_img_data_from_point(cls, point: models.ScoredPoint) -> ImageData:
         if point.vector:
             image_vector = np.array(point.vector[cls.IMG_VECTOR], dtype=np.float32)
-        
+        else:
+            image_vector = None
         return (ImageData.from_payload(point.id,
                                         point.payload,
                                         image_vector))
@@ -97,7 +98,7 @@ class VectorDbHandler:
         
         filters = []
 
-        if len(filter_param.thumbnail_list) != 0:
+        if filter_param.thumbnail_list is not None:
             filters.append(models.FieldCondition(
                 key="thumbnail",
                 match=models.MatchAny(any=filter_param.thumbnail_list)

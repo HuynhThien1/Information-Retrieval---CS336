@@ -26,7 +26,8 @@ class ImageData(BaseModel):
         index_date = datetime.fromisoformat(payload['index_date'])
         del payload['index_date']
 
-        return cls(index_date = index_date,
+        return cls(id = id,
+                    index_date = index_date,
                     **payload,
                     image_vector = image_vector if image_vector is not None else None)
     

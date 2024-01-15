@@ -183,8 +183,8 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=caption))
 
 
-@app.route('/<string:model>/<string:dataset>/<string:reference_name>/<string:caption>/<string:search_option>')
-def results(model: str, dataset: str, reference_name: str, caption: str, search_option: str):
+@app.route('/<string:model>/<string:dataset>/<string:reference_name>/<string:caption>')
+def results(model: str, dataset: str, reference_name: str, caption: str):
     """
     Compute the results of a given query and makes the render of 'results.html' template
     :param dataset: dataset of the query
@@ -210,10 +210,10 @@ def results(model: str, dataset: str, reference_name: str, caption: str, search_
     if dataset == 'cirr':
         # Compute CIRR results
         sorted_group_names, sorted_index_names, target_name = compute_cirr_results(caption, combiner, n_retrieved,
-                                                                                   reference_name, model,search_option)
+                                                                                   reference_name, model,search_option = 'qdrant')
     elif dataset == "fashionIQ":
         # Compute fashionIQ results
-        sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model, selection,search_option)
+        sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model, selection,search_option='qdrant')
 
 
     else:
@@ -404,7 +404,7 @@ def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, ref
         filter_param = FilterParams(dataset='cirr')
         query_result = db_handler.query_search(predicted_features,filter_param=filter_param)
         sorted_index_names = np.array([point.img_data.thumbnail for point in query_result]).flatten()
-    
+        print(sorted_index_names)
     if model == 'compose' or model == 'image_retrieval':
         sorted_index_names = np.delete(sorted_index_names, np.where(sorted_index_names == reference_name))
 
