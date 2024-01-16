@@ -37,13 +37,13 @@ global search_method
 global saved_search_method
 @app.route('/')
 
+
 def model_choice():
     """
-    Makes the render of dataset_choice template.
+    Makes the render of model_choice template.
+    The list of models: Image Retrival / Text Retrival / Composed Image Retrival
     """
     return render_template('model_choice.html')
-
-
 
 @app.route('/favicon.ico')
 def favicon():
@@ -54,15 +54,10 @@ def dataset_choice(model):
     """
     Makes the render of dataset_choice template.
     """
-    if model == 'image_retrieval':
-        model = 'image_retrieval'
-    elif model == 'text_retrieval':
-        model = 'text_retrieval'
-    elif model == 'compose':
-        model = 'compose'
-
     return render_template('dataset_choice.html', model=model)
-#This function is upload image don't add another
+
+
+#This function is used to upload all the images for retrival work
 @app.route('/file_upload/<string:model>/<string:dataset>', methods=['POST'])
 def file_upload(model: str, dataset: str):
     """
@@ -105,7 +100,7 @@ def reference(model: str, dataset: str):
     Get 30 random reference images and makes the render of the 'reference' template
     :param dataset: dataset where get the reference images
     """
-        
+   
     if dataset == 'cirr':
         random_indexes = random.sample(range(len(cirr_val_triplets)), k=30)
         triplets = np.array(cirr_val_triplets)[random_indexes]
@@ -118,6 +113,8 @@ def reference(model: str, dataset: str):
         text_names = [triplet['captions'][0] for triplet in triplets]
     else:
         return redirect(url_for('choice'))
+    
+    #In case model = text retrival -> we do not need to diplay the images. We only need to dipslay descriptions
     if model == 'text_retrieval':
         return render_template('reference_caption.html', model=model, dataset=dataset, names=text_names)
     else:
@@ -130,6 +127,12 @@ def relative_caption(model: str, dataset: str, reference_name: str):
     Get the dataset relative captions for the given reference image and renders the 'relative_caption' template
     :param dataset: dataset of the reference image
     :param reference_name: name of the reference images
+
+    For composed -> get the relative captions
+    For image retrival -> None
+    For text -> None
+
+    We will have three seperate files to display
     """
     global saved_relative_caption
     
@@ -144,6 +147,7 @@ def relative_caption(model: str, dataset: str, reference_name: str):
                 if triplet['candidate'] == reference_name:
                     relative_captions.append(
                         f"{triplet['captions'][0].strip('?,. ').capitalize()} and {triplet['captions'][1].strip('?,. ')}")
+    
     #get relative caption to other function
         saved_relative_caption = relative_captions
     if model == 'compose':
@@ -173,22 +177,19 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         print('reference', reference_name)
     else:
         print('old caption', old_caption)
+
     global search_method
     if  model == 'compose':
-        
-        
         if 'search-method' in request.form:
             search_method = request.form['search-method']
             saved_search_method = search_method
+        
 
-        # else:
-            # search_method = ""
-        print('request form', request.form)
         if 'custom_caption' in request.form:
             caption = request.form['custom_caption']
             try:
                 search_method = 'Traditional'
-                print("search method1: ",search_method)
+               
                 if saved_search_method != search_method:
                     search_method = saved_search_method
                 print("search method2: ",search_method)
@@ -203,14 +204,18 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         else:
             return render_template('relative_caption.html', model=model, dataset=dataset, reference_name=reference_name,
                            relative_captions=saved_relative_caption)
+        
+
     elif model == 'image_retrieval':
-        # reference_name = old_caption
+        #get the search method
         if 'search-method' in request.form:
             search_method = request.form['search-method']
             saved_search_method = search_method
-
+            print(request.form)
+            print(search_method)
+        #get the search image
         if 'custom_image' in request.form:
-            caption = request.form['custom_image']
+            query_image = request.form['custom_image']
             
             try:
                 search_method = 'Traditional'
@@ -221,15 +226,15 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
                 print("search method2: ",search_method)
             except:
                 search_method = 'Traditional'
-
         else:
-            caption = ""
-        if caption != "":
+            query_image = ""
+        
+         #If the image is not null -> send to the result function, otherwise go back to the relative image page.
+        if query_image != "":
             return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=' '))
         else:
             return render_template('relative_image.html', model=model, dataset=dataset, reference_name=reference_name,
                         relative_captions=saved_relative_caption)
-
     else:
         if 'search-method' in request.form:
             search_method = request.form['search-method']
@@ -256,13 +261,14 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
             selection= request.form['fiq-category']
             saved_selection = selection
         
+       
         if caption != "":
             return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=caption))
         else:
             return render_template('relative_text.html', model=model, dataset=dataset, reference_name=reference_name)
 
     
-
+#This function is used to search the results
 @app.route('/<string:model>/<string:dataset>/<string:reference_name>/<string:caption>')
 def results(model: str, dataset: str, reference_name: str, caption: str):
     """
@@ -274,7 +280,8 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
     global saved_selection
     global search_method
     n_retrieved = 50  # retrieve first 50 results since for both dataset the R@50 is the broader scale metric
-    #select model 
+    
+
     if model == 'compose':
         saved_selection = ""
         if dataset == 'cirr':
@@ -283,6 +290,7 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
             combiner = fashionIQ_combiner
         else:
             raise ValueError()
+        
     elif model == 'image_retrieval':
         saved_selection = ""
         combiner = clip_model
@@ -291,22 +299,12 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
 
     sorted_group_names = ""
 
-    #take search-method. It's already for function
-    
-    print('search-method', search_method)
-    print('dataset ', dataset)
+    #retrival the images    
     if dataset == 'cirr':
-        # Compute CIRR results
-        print("request method ", request.method)
-        print("search method ", search_method)
-
         sorted_group_names, sorted_index_names, target_name = compute_cirr_results(caption, combiner, n_retrieved,
                                                                                    reference_name, model,search_method)
     elif dataset == "fashionIQ":
-        # Compute fashionIQ results
         sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model, saved_selection,search_method)
-
-
     else:
         return redirect(url_for('choice'))
     
@@ -483,7 +481,7 @@ def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, ref
             text_features = clip_model.encode_text(text_inputs)
             predicted_features = text_features.squeeze(0)
 
-    # Sort the results and get the top 50
+    # Sort the results and get the top 50 
     if search_option == 'Traditional':
         index_features = F.normalize(index_features)
         cos_similarity = index_features @ predicted_features.T
