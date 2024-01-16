@@ -192,13 +192,12 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
                
                 if saved_search_method != search_method:
                     search_method = saved_search_method
-                print("search method2: ",search_method)
             except:
                 search_method = 'Traditional'
 
         else:
             caption = ""
-
+        print("Search Method: ",search_method)
         if caption != "":
             return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=caption))
         else:
@@ -211,24 +210,23 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         if 'search-method' in request.form:
             search_method = request.form['search-method']
             saved_search_method = search_method
-            print(request.form)
-            print(search_method)
+
         #get the search image
         if 'custom_image' in request.form:
             query_image = request.form['custom_image']
             
             try:
                 search_method = 'Traditional'
-
-                print("search method1: ",search_method)
                 if saved_search_method != search_method:
                     search_method = saved_search_method
-                print("search method2: ",search_method)
+                
             except:
                 search_method = 'Traditional'
         else:
             query_image = ""
         
+
+        print("Search Method: ",search_method)
          #If the image is not null -> send to the result function, otherwise go back to the relative image page.
         if query_image != "":
             return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=' '))
@@ -245,23 +243,16 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
             reference_name = caption
             try:
                 search_method = 'Traditional'
-
-                print("search method1: ",search_method)
                 if saved_search_method != search_method:
                     search_method = saved_search_method
-                print("search method2: ",search_method)
             except:
                 search_method = 'Traditional'
 
         else:
             caption = ""
         
-        
-        if 'fiq-category' in request.form:
-            selection= request.form['fiq-category']
-            saved_selection = selection
-        
-       
+        print("Search Method: ",search_method)
+         
         if caption != "":
             return redirect(url_for('results', model=model, dataset=dataset, reference_name=reference_name, caption=caption))
         else:
@@ -279,6 +270,7 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
     """
     global saved_selection
     global search_method
+    global saved_search_method
     n_retrieved = 50  # retrieve first 50 results since for both dataset the R@50 is the broader scale metric
     
 
@@ -312,15 +304,15 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
     if model == 'image_retrieval':
         return render_template('image_retrieval_results.html', model=model, dataset=dataset, caption=caption, reference_name=reference_name,
                            names=sorted_index_names[:n_retrieved], target_name=target_name,
-                           group_names=sorted_group_names)
+                           group_names=sorted_group_names, search_method=search_method)
     elif model == 'text_retrieval':
         return render_template('text_retrieval_results.html', model=model, dataset=dataset, caption=caption, reference_name=reference_name,
                            names=sorted_index_names[:n_retrieved], target_name=target_name,
-                           group_names=sorted_group_names)
+                           group_names=sorted_group_names, search_method=search_method)
     else:
         return render_template('results.html', model=model, dataset=dataset, caption=caption, reference_name=reference_name,
                            names=sorted_index_names[:n_retrieved], target_name=target_name,
-                           group_names=sorted_group_names)
+                           group_names=sorted_group_names, search_method=search_method)
 
 
 
