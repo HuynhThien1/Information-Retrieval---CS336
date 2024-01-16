@@ -15,7 +15,7 @@
 
 
 <body class="bg-light d-flex flex-column min-vh-100">
-    <nav class="navbar navbar-expand navbar-light pb-0 pt-1" style="background-color: #5C9BD9">
+    <nav class="navbar navbar-expand navbar-light pb-0 pt-1" style="background-color: #ef6c00">
         <a class="navbar-brand hover-shadow-soft justify-content-start mx-3" href="{{ url_for('model_choice') }}"><b>HOME</b></a>
         <div class="collapse navbar-collapse">
             <ul class="navbar-nav nav nav-tabs navbar-right">
@@ -26,7 +26,7 @@
                     <a class="nav-link {% if 'text_retrieval' in request.path %}active{% endif %}" href="{{ url_for('dataset_choice', model='text_retrieval') }}" style="font-size: medium">Text Retrieval</a>
                 </li>
                 <li class="nav-item mx-1">
-                    <a class="nav-link {% if 'compose' in request.path %}active{% endif %}" href="{{ url_for('dataset_choice', model='compose') }}" style="font-size: medium">Compse image Retrieval</a>
+                    <a class="nav-link {% if 'compose' in request.path %}active{% endif %}" href="{{ url_for('dataset_choice', model='compose') }}" style="font-size: medium">Compose Image Retrieval</a>
                 </li>
             </ul>
         </div>
@@ -41,17 +41,17 @@
     </div>
 
     <hr>
-    <footer class="mt-auto mb-2" style="background-color: #5C9BD9">
+    <footer class="mt-auto mb-2">
         <!-- <hr> -->
         <div class="text-center">
             <a class="hover-shadow" href="https://www.micc.unifi.it/" style="color:black">Truy vấn Thông Tin Đa Phương Tiện - CS336</a><br>
-            <p style="color:black">University of Information Technology</p>
-            <p style="color:black">Code and more details available at
+            <p style="color:5C9BD9">University of Information Technology</p>
+            <p style="color:5C9BD9">Code and more details available at
                 <a class="hover-shadow" href="https://github.com/HuynhThien1/Information-Retrieval---CS336" style="color:black"> <i class="fa fa-github fa-2x" aria-hidden="true"></i></a>
             </p>
-            <a class="hover-shadow" href="https://www.facebook.com/profile.php?id=100011703815150" style="color:black">Huynh Cong Thien</a>,
-            <a class="hover-shadow" href="https://www.facebook.com/L.ChiThinh" style="color:black">Le Chi Thinh</a>,
-            <a class="hover-shadow" href="https://www.facebook.com/profile.php?id=100006472204856" style="color:black">Nguyen Minh Tri</a>,
+            <a class="hover-shadow" href="https://www.facebook.com/profile.php?id=100011703815150" style="color:5C9BD9">Huynh Cong Thien</a>,
+            <a class="hover-shadow" href="https://www.facebook.com/L.ChiThinh" style="color:5C9BD9lack">Le Chi Thinh</a>,
+            <a class="hover-shadow" href="https://www.facebook.com/profile.php?id=100006472204856" style="color:5C9BD9">Nguyen Minh Tri</a>,
         </div>
     </footer>
 </body>
