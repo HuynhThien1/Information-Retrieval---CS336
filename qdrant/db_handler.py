@@ -25,8 +25,8 @@ class VectorDbHandler:
                                         ids = [img_id],
                                         with_payload=with_payload,
                                         with_vectors= with_vector)
-        print(res)
-        return res[0]
+        if len(res) != 1:
+            return self._get_img_data_from_point(res[0])
     
 
     def query_search(self, query_vector,top_k = 50, filter_param: Optional[FilterParams] = None) -> "list[SearchResult]":
@@ -50,7 +50,6 @@ class VectorDbHandler:
     def get_counts(self,exact):
         res =  self._client.count(collection_name=self.collection_name, exact=exact) 
         return res.count
-
     def insertItems(self, item: ImageData):
         points = [self._get_point_from_img_data(item)]
 
