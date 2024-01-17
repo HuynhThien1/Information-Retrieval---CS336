@@ -1,5 +1,4 @@
 import numpy as np
-import qdrant_client
 from typing import Optional
 from qdrant_client.http import models
 from qdrant_client import QdrantClient

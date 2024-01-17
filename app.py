@@ -3,7 +3,7 @@ import os
 import pickle
 import random
 import time
-from io import BytesIO
+from io import BytesIO,StringIO
 from multiprocessing import Process
 from typing import Optional, Tuple, Union
 import torch.nn.functional as F
@@ -12,6 +12,9 @@ import PIL.ImageOps
 import clip
 import numpy as np
 import torch
+import requests
+import boto3
+from PIL import Image
 from flask import Flask, send_file, url_for
 from flask import render_template, request, redirect
 from torchvision.transforms.functional import resize
@@ -35,6 +38,11 @@ global saved_selection
 global model
 global search_method
 global saved_search_method
+s3 = boto3.client('s3')
+S3BUCKETNAME = "myirsbucket"
+
+REGION = "ap-southeast-1"
+AWS_URL = f"https://{S3BUCKETNAME}.s3.{REGION}.amazonaws.com/"
 @app.route('/')
 
 def model_choice():
@@ -77,26 +85,41 @@ def file_upload(model: str, dataset: str):
         if file:
             try:
                 img = PIL.Image.open(file)
-            except Exception:  # If the file is not an image redirect to the reference choice page
+                # img = PIL.Image.open(BytesIO(request.files['file'].read()))
+                # img = resize(img, 512, PIL.Image.BICUBIC) 
+                print("success")
+            except Exception:  
                 return redirect(url_for('reference', model=model, dataset=dataset))
-            resized_img = resize(img, 512, PIL.Image.BICUBIC)
+            # If the file is not an image redirect to the reference choice page
+                
+                # return redirect(url_for('reference', model=model, dataset=dataset))
+            # resized_img = resize(img, 512, PIL.Image.BICUBIC)
 
             filename = secure_filename(file.filename)
-            filename = os.path.splitext(filename)[0] + str(int(time.time())) + os.path.splitext(filename)[
-                1]  # Append the timestamp to avoid conflicts in names
+            # filename = os.path.splitext(filename)[0] + str(int(time.time())) + os.path.splitext(filename)[
+            #     1]  # Append the timestamp to avoid conflicts in names
             if 'fiq-category' in request.form:  # if the user upload an image to FashionIQ it must specify the category
                 assert dataset == 'fashionIQ'
                 fiq_category = request.form['fiq-category']
-                folder_path = app.config['UPLOAD_FOLDER'] / dataset / fiq_category
-                folder_path.mkdir(exist_ok=True, parents=True)
-                resized_img.save(folder_path / filename)
+                # folder_path = app.config['UPLOAD_FOLDER'] / dataset / fiq_category
+                # folder_path.mkdir(exist_ok=True, parents=True)
+                # resized_img.save(folder_path / filename)
+                folder_path = server_base_path  / f'fashionIQ_dataset/images/{filename}'
+                filename_edit =  os.path.splitext(filename)[0]+"_"+ fiq_category+os.path.splitext(filename)[1]
+                des_folder = f'upload_image/fashionIQ_dataset/{filename_edit}'
             else:
                 assert dataset == 'cirr'
-                folder_path = app.config['UPLOAD_FOLDER'] / dataset
-                folder_path.mkdir(exist_ok=True, parents=True)
-                resized_img.save(folder_path / filename)
+                folder_path = f'{server_base_path}/cirr_dataset/{filename.split("-")[0]}/{filename}'
+                filename_edit = os.path.splitext(filename)[0] + str(int(time.time())) + os.path.splitext(filename)[1]
+                des_folder = f'upload_image/cirr_dataset/{filename_edit}'
 
-            return redirect(url_for('relative_caption', model=model, dataset=dataset, reference_name=filename))
+
+
+            
+            # des_folder = f'upload_image/{dataset}/{filename_edit}'
+            s3.upload_file(folder_path,S3BUCKETNAME,des_folder)
+            # s3.put_object(Bucket =S3BUCKETNAME,Key =des_folder,Body = img.tobytes())
+            return redirect(url_for('relative_caption', model=model, dataset=dataset, reference_name=filename_edit))
 
 
 @app.route('/<string:model>/<string:dataset>')
@@ -251,9 +274,8 @@ def custom_caption(model: str, dataset: str, reference_name: Optional[str] = Non
         else:
             caption = ""
         
-        
         if 'fiq-category' in request.form:
-            selection= request.form['fiq-category']
+            selection = request.form['fiq-category']
             saved_selection = selection
         
         if caption != "":
@@ -273,6 +295,7 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
     """
     global saved_selection
     global search_method
+    global saved_search_method
     n_retrieved = 50  # retrieve first 50 results since for both dataset the R@50 is the broader scale metric
     #select model 
     if model == 'compose':
@@ -293,7 +316,7 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
 
     #take search-method. It's already for function
     
-    print('search-method', search_method)
+    
     print('dataset ', dataset)
     if dataset == 'cirr':
         # Compute CIRR results
@@ -314,15 +337,15 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
     if model == 'image_retrieval':
         return render_template('image_retrieval_results.html', model=model, dataset=dataset, caption=caption, reference_name=reference_name,
                            names=sorted_index_names[:n_retrieved], target_name=target_name,
-                           group_names=sorted_group_names)
+                           group_names=sorted_group_names, search_method=search_method)
     elif model == 'text_retrieval':
         return render_template('text_retrieval_results.html', model=model, dataset=dataset, caption=caption, reference_name=reference_name,
                            names=sorted_index_names[:n_retrieved], target_name=target_name,
-                           group_names=sorted_group_names)
+                           group_names=sorted_group_names, search_method=search_method)
     else:
         return render_template('results.html', model=model, dataset=dataset, caption=caption, reference_name=reference_name,
                            names=sorted_index_names[:n_retrieved], target_name=target_name,
-                           group_names=sorted_group_names)
+                           group_names=sorted_group_names, search_method=search_method)
 
 
 
@@ -336,7 +359,7 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
     :param reference_name: reference image name
     :return: Tuple made of: 1)top 'n_retrieved' index names , 2) target_name (when known)
     """
-
+    print("selection ", selection)
     target_name = ""
     if model  == 'text_retrieval':
         dress_type = str(selection)
@@ -350,13 +373,21 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
         elif reference_name in fashionIQ_shirt_index_names:
             dress_type = 'shirt'
         else:  # Search for an uploaded image
-            for iter_path in app.config['UPLOAD_FOLDER'].rglob('*'):
-                if iter_path.name == reference_name:
-                    image_path = iter_path
-                    dress_type = image_path.parent.name
-                    break
-            else:
-                raise ValueError()
+            # for iter_path in app.config['UPLOAD_FOLDER'].rglob('*'):
+                # if iter_path.name == reference_name:
+                #     image_path = iter_path
+                #     dress_type = image_path.parent.name
+                #     break
+            dress_type = reference_name.split(".")[0].split("_")[1]
+            print("type ",dress_type)
+            # res = s3.list_objects_v2(Bucket = S3BUCKETNAME, Prefix = 'upload_image/', Delimiter= '/' )
+            # for obj in res.get('Contents',[]):
+            #     if obj['Key'].endswith(reference_name):
+            #         dress_type = obj['Key'].split("/")[0]
+            #         print('dress type: ',dress_type)
+            #         break
+            # else:
+            #     raise ValueError()
 
     # Check if the query belongs to the validation set and get query info
     if model == 'image_retrieval' or model == 'compose':
@@ -399,8 +430,9 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
             reference_index = index_names.index(reference_name)
             reference_features = index_features[reference_index].unsqueeze(0)
         except Exception:  # raise an exception if the reference image has been uploaded by the user
-            image_path = app.config['UPLOAD_FOLDER'] / 'fashionIQ' / dress_type / reference_name
-            pil_image = PIL.Image.open(image_path).convert('RGB')
+            img_url = AWS_URL + 'upload_image/fashionIQ_dataset/' + reference_name
+            r = requests.get(img_url)
+            pil_image = PIL.Image.open(BytesIO(r.content)).convert('RGB')
             image = targetpad_transform(1.25, clip_model.visual.input_resolution)(pil_image).to(device)
             reference_features = clip_model.encode_image(image.unsqueeze(0))
 
@@ -464,8 +496,9 @@ def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, ref
             reference_index = index_names.index(reference_name)
             reference_features = index_features[reference_index].unsqueeze(0)
         except Exception:  # raise an exception if the reference image has been uploaded by the user
-            image_path = app.config['UPLOAD_FOLDER'] / 'cirr' / reference_name
-            pil_image = PIL.Image.open(image_path).convert('RGB')
+            img_url = AWS_URL + 'upload_image/cirr_dataset/' + reference_name
+            r = requests.get(img_url)
+            pil_image = PIL.Image.open(BytesIO(r.content)).convert('RGB')
             image = targetpad_transform(1.25, clip_model.visual.input_resolution)(pil_image).to(device)
             reference_features = clip_model.encode_image(image.unsqueeze(0))
 
@@ -517,6 +550,69 @@ def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, ref
             sorted_group_names = np.delete(sorted_group_names, np.where(sorted_group_names == reference_name)).tolist()
             
     return sorted_group_names, sorted_index_names, target_name
+
+@app.route('/get_aws_image/<string:image_name>')
+@app.route('/get_aws_image/<string:image_name>/<int:dim>')
+@app.route('/get_aws_image/<string:image_name>/<int:dim>/<string:gt>')
+@app.route('/get_aws_image/<string:image_name>/<string:gt>')
+@app.route('/get_aws_image/<string:dataset>/<string:image_name>')
+def get_aws_image( image_name: str, dataset:str = None, dim: Optional[int] = None, gt: Optional[str] = None):
+    if image_name in cirr_name_to_relpath:  #
+        type_data = cirr_name_to_relpath[image_name]
+        img_url = AWS_URL + 'cirr_dataset' + type_data[1:]
+        print(img_url)
+        
+        
+    elif image_name in fashion_index_names:
+        img_url = AWS_URL + 'fashionIQ_dataset/images/' + image_name + ".png" 
+        print(img_url)
+        
+        
+    # if image_name:
+    #     img_url = AWS_URL + image_name + '.png'
+    #     print(img_url)
+    #     r = requests.get(img_url)
+    else:  # Search for an uploaded image
+        try:
+            if dataset == 'cirr':
+                print("img name: ",image_name)
+
+                img_url = AWS_URL + 'upload_image/cirr_dataset/'  + image_name
+                print(img_url)
+            elif dataset == 'fashionIQ':
+                print("name ",image_name)
+                img_url = AWS_URL + 'upload_image/fashionIQ_dataset/'  + image_name
+
+            print(img_url)
+
+        except:
+            raise  ValueError()
+        
+        # upload_img = PIL.Image.open(BytesIO(r.content))
+        # resized_img = resize(upload_img,512, PIL.Image.BICUBIC)
+        
+    r = requests.get(img_url)
+
+    # if 'dim' is not None resize the image
+        
+    if dim:
+        transform = targetpad_resize(1.25, int(dim), 255)
+        pil_image = transform(PIL.Image.open((BytesIO(r.content))))
+    else:
+        pil_image = PIL.Image.open(BytesIO(r.content))
+        
+    # add a border to the image
+    if gt == 'True':
+        pil_image = PIL.ImageOps.expand(pil_image, border=5, fill='green')
+    elif gt == 'False':
+        pil_image = PIL.ImageOps.expand(pil_image, border=5, fill='red')
+    elif gt is None:
+        pil_image = PIL.ImageOps.expand(pil_image, border=1, fill='grey')
+
+    img_io = BytesIO()
+    pil_image.save(img_io, 'JPEG', quality=80)
+    img_io.seek(0)
+    return send_file(img_io, mimetype='image/jpeg')
 
 @app.route('/get_image/<string:image_name>')
 @app.route('/get_image/<string:image_name>/<int:dim>')
@@ -729,4 +825,4 @@ def delete_uploaded_images():
 
 if __name__ == '__main__':
     # test_text_search()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)

@@ -7,7 +7,7 @@
                 <div class="col-xs-11 col-sm-11 col-md-6 col-lg-6 bg-image my-2 text-center">
                     <h2 class="text-center p-1">Reference Image</h2>
                     <a class="bg-image">
-                        <img class="img-fluid image" src="{{ url_for('get_image', dataset=dataset, image_name=reference_name) }}" alt="Frame overview">
+                        <img class="img-fluid image" src="{{ url_for('get_aws_image', dataset=dataset, image_name=reference_name) }}" alt="Frame overview">
                     </a>
                 </div>
 
@@ -16,7 +16,7 @@
 
                     <div class="text-center col-12 mb-4">
                         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-upload">
-                                <i>Search method</i>
+                                Search method
                             </button>
                     </div>
                     <ul class="m-0 p-0">

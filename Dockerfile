@@ -1,12 +1,13 @@
-ARG TORCH_VERSION=2.1.2
-ARG CUDA_VERSION=12.1
-FROM pytorch/pytorch:${TORCH_VERSION}-cuda${CUDA_VERSION}-cudnn8-runtime
+ARG TORCH_VERSION = 1.7.1
+FROM pytorch/pytorch:${TORCH_VERSION}-cpu
+
 # FROM python:3.8
 
+RUN pip install git+https://github.com/openai/CLIP.git
 # RUN python3 --version
 
 
-WORKDIR /CLIP4CirDemo
+WORKDIR /opt/irs
 
 COPY requirements.txt .
 
@@ -16,7 +17,7 @@ COPY . .
 
 EXPOSE 8000
 
-VOLUME [".:/opt/IRS"]
+VOLUME ["/opt/irs/static"]
 
 # LABEL org.opencontainers.image.authors="EdgeNeko" \
 #       org.opencontainers.image.title="NekoImageGallery" \
