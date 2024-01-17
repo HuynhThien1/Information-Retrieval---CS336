@@ -80,41 +80,24 @@ def file_upload(model: str, dataset: str):
         if file:
             try:
                 img = PIL.Image.open(file)
-                # img = PIL.Image.open(BytesIO(request.files['file'].read()))
-                # img = resize(img, 512, PIL.Image.BICUBIC) 
-                print("success")
-            except Exception:  
+            except Exception:  # If the file is not an image redirect to the reference choice page
                 return redirect(url_for('reference', model=model, dataset=dataset))
-            # If the file is not an image redirect to the reference choice page
-                
-                # return redirect(url_for('reference', model=model, dataset=dataset))
-            # resized_img = resize(img, 512, PIL.Image.BICUBIC)
-
+            resized_img = resize(img, 512, PIL.Image.BICUBIC)
             filename = secure_filename(file.filename)
-            # filename = os.path.splitext(filename)[0] + str(int(time.time())) + os.path.splitext(filename)[
-            #     1]  # Append the timestamp to avoid conflicts in names
+            filename = os.path.splitext(filename)[0] + str(int(time.time())) + os.path.splitext(filename)[
+                1]  # Append the timestamp to avoid conflicts in names
             if 'fiq-category' in request.form:  # if the user upload an image to FashionIQ it must specify the category
                 assert dataset == 'fashionIQ'
                 fiq_category = request.form['fiq-category']
-                # folder_path = app.config['UPLOAD_FOLDER'] / dataset / fiq_category
-                # folder_path.mkdir(exist_ok=True, parents=True)
-                # resized_img.save(folder_path / filename)
-                folder_path = server_base_path  / f'fashionIQ_dataset/images/{filename}'
-                filename_edit =  os.path.splitext(filename)[0]+"_"+ fiq_category+os.path.splitext(filename)[1]
-                des_folder = f'upload_image/fashionIQ_dataset/{filename_edit}'
+                folder_path = app.config['UPLOAD_FOLDER'] / dataset / fiq_category
+                folder_path.mkdir(exist_ok=True, parents=True)
+                resized_img.save(folder_path / filename)
             else:
                 assert dataset == 'cirr'
-                folder_path = f'{server_base_path}/cirr_dataset/{filename.split("-")[0]}/{filename}'
-                filename_edit = os.path.splitext(filename)[0] + str(int(time.time())) + os.path.splitext(filename)[1]
-                des_folder = f'upload_image/cirr_dataset/{filename_edit}'
-
-
-
-            
-            # des_folder = f'upload_image/{dataset}/{filename_edit}'
-            s3.upload_file(folder_path,S3BUCKETNAME,des_folder)
-            # s3.put_object(Bucket =S3BUCKETNAME,Key =des_folder,Body = img.tobytes())
-            return redirect(url_for('relative_caption', model=model, dataset=dataset, reference_name=filename_edit))
+                folder_path = app.config['UPLOAD_FOLDER'] / dataset
+                folder_path.mkdir(exist_ok=True, parents=True)
+                resized_img.save(folder_path / filename)
+            return redirect(url_for('relative_caption', model=model, dataset=dataset, reference_name=filename))
 
 
 @app.route('/<string:model>/<string:dataset>')
@@ -327,6 +310,7 @@ def results(model: str, dataset: str, reference_name: str, caption: str):
                                                                                    reference_name, model,search_method)
     elif dataset == "fashionIQ":
         sorted_index_names, target_name = compute_fashionIQ_results(caption, combiner, n_retrieved, reference_name, model, saved_selection,search_method)
+
     else:
         return redirect(url_for('choice'))
     
@@ -370,21 +354,13 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
         elif reference_name in fashionIQ_shirt_index_names:
             dress_type = 'shirt'
         else:  # Search for an uploaded image
-            # for iter_path in app.config['UPLOAD_FOLDER'].rglob('*'):
-                # if iter_path.name == reference_name:
-                #     image_path = iter_path
-                #     dress_type = image_path.parent.name
-                #     break
-            dress_type = reference_name.split(".")[0].split("_")[1]
-            print("type ",dress_type)
-            # res = s3.list_objects_v2(Bucket = S3BUCKETNAME, Prefix = 'upload_image/', Delimiter= '/' )
-            # for obj in res.get('Contents',[]):
-            #     if obj['Key'].endswith(reference_name):
-            #         dress_type = obj['Key'].split("/")[0]
-            #         print('dress type: ',dress_type)
-            #         break
-            # else:
-            #     raise ValueError()
+            for iter_path in app.config['UPLOAD_FOLDER'].rglob('*'):
+                if iter_path.name == reference_name:
+                    image_path = iter_path
+                    dress_type = image_path.parent.name
+                    break
+            else:
+                raise ValueError()
 
     # Check if the query belongs to the validation set and get query info
     if model == 'image_retrieval' or model == 'compose':
@@ -427,9 +403,8 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
             reference_index = index_names.index(reference_name)
             reference_features = index_features[reference_index].unsqueeze(0)
         except Exception:  # raise an exception if the reference image has been uploaded by the user
-            img_url = AWS_URL + 'upload_image/fashionIQ_dataset/' + reference_name
-            r = requests.get(img_url)
-            pil_image = PIL.Image.open(BytesIO(r.content)).convert('RGB')
+            image_path = app.config['UPLOAD_FOLDER'] / 'fashionIQ' / dress_type / reference_name
+            pil_image = PIL.Image.open(image_path).convert('RGB')
             image = targetpad_transform(1.25, clip_model.visual.input_resolution)(pil_image).to(device)
             reference_features = clip_model.encode_image(image.unsqueeze(0))
 
@@ -452,11 +427,19 @@ def compute_fashionIQ_results(caption: str, combiner: Combiner, n_retrieved: int
         sorted_indices = torch.topk(cos_similarity, n_retrieved, largest=True).indices.cpu()
         sorted_index_names = np.array(index_names)[sorted_indices].flatten()
 
+    
+
+        
     elif search_option == 'Qdrant':
-        filter_param = FilterParams(dataset='cirr')
+        filter_param = FilterParams(dataset='fashionIQ')
         query_result = db_handler.query_search(predicted_features,filter_param=filter_param)
         sorted_index_names = np.array([point.img_data.thumbnail for point in query_result]).flatten()
     
+
+    if model == 'compose' or model == 'image_retrieval':
+        sorted_index_names = np.delete(sorted_index_names, np.where(sorted_index_names == reference_name))
+
+
     return sorted_index_names, target_name
 
 
@@ -493,9 +476,8 @@ def compute_cirr_results(caption: str, combiner: Combiner, n_retrieved: int, ref
             reference_index = index_names.index(reference_name)
             reference_features = index_features[reference_index].unsqueeze(0)
         except Exception:  # raise an exception if the reference image has been uploaded by the user
-            img_url = AWS_URL + 'upload_image/cirr_dataset/' + reference_name
-            r = requests.get(img_url)
-            pil_image = PIL.Image.open(BytesIO(r.content)).convert('RGB')
+            image_path = app.config['UPLOAD_FOLDER'] / 'cirr' / reference_name
+            pil_image = PIL.Image.open(image_path).convert('RGB')
             image = targetpad_transform(1.25, clip_model.visual.input_resolution)(pil_image).to(device)
             reference_features = clip_model.encode_image(image.unsqueeze(0))
 
@@ -570,33 +552,32 @@ def get_aws_image( image_name: str, dataset:str = None, dim: Optional[int] = Non
     #     print(img_url)
     #     r = requests.get(img_url)
     else:  # Search for an uploaded image
-        try:
-            if dataset == 'cirr':
-                print("img name: ",image_name)
-
-                img_url = AWS_URL + 'upload_image/cirr_dataset/'  + image_name
-                print(img_url)
-            elif dataset == 'fashionIQ':
-                print("name ",image_name)
-                img_url = AWS_URL + 'upload_image/fashionIQ_dataset/'  + image_name
-
-            print(img_url)
-
-        except:
-            raise  ValueError()
+        for iter_path in app.config['UPLOAD_FOLDER'].rglob('*'):
+            if iter_path.name == image_name:
+                image_path = iter_path
+                break
+        else:
+            raise ValueError()
         
         # upload_img = PIL.Image.open(BytesIO(r.content))
         # resized_img = resize(upload_img,512, PIL.Image.BICUBIC)
         
-    r = requests.get(img_url)
 
     # if 'dim' is not None resize the image
-        
-    if dim:
-        transform = targetpad_resize(1.25, int(dim), 255)
-        pil_image = transform(PIL.Image.open((BytesIO(r.content))))
+    if image_name in fashion_index_names or image_name in cirr_name_to_relpath:
+        r = requests.get(img_url)
+        if dim:
+            transform = targetpad_resize(1.25, int(dim), 255)
+            pil_image = transform(PIL.Image.open((BytesIO(r.content))))
+        else:
+            pil_image = PIL.Image.open(BytesIO(r.content))
+
     else:
-        pil_image = PIL.Image.open(BytesIO(r.content))
+        if dim:
+            pil_image = transform(PIL.Image.open(image_path))
+        else:
+            pil_image = PIL.Image.open(image_path)
+
         
     # add a border to the image
     if gt == 'True':
@@ -822,4 +803,5 @@ def delete_uploaded_images():
 
 if __name__ == '__main__':
     # test_text_search()
-    app.run(host="0.0.0.0", port=5000)
+    # app.run(host="0.0.0.0", port=5000)
+    app.run()
