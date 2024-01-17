@@ -12,7 +12,7 @@
                 {% for name in names %}
                 <div class="col-xs-11 col-sm-11 col-md-6 col-lg-4 bg-image hover-zoom mb-3">
                     <a class="bg-image" href="{{ url_for('relative_caption', model=model, dataset=dataset, reference_name=name) }}">
-                        <img class="img-fluid image" src="{{ url_for('get_image', image_name=name, dim=640) }}" alt="Frame overview">
+                        <img class="img-fluid image" src="{{ url_for('get_aws_image', image_name=name, dim=640) }}" alt="Frame overview">
                     </a>
                 </div>
                 {% endfor %}

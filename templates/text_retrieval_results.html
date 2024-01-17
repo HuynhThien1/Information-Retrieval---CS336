@@ -48,15 +48,15 @@
                     <a class="bg-image" href="{{ url_for('relative_caption', model=model, dataset=dataset, reference_name=name) }}">
                                     {% if name == target_name and target_name!="" %}
                                         <img class="img-fluid image"
-                                             src="{{ url_for('get_image', image_name=name, dim=640, gt='True') }}"
+                                             src="{{ url_for('get_aws_image', image_name=name, dim=640, gt='True') }}"
                                              alt="Frame overview">
                                     {% elif name != target_name and target_name!="" %}
                                         <img class="img-fluid image"
-                                             src="{{ url_for('get_image', image_name=name, dim=640, gt='False') }}"
+                                             src="{{ url_for('get_aws_image', image_name=name, dim=640, gt='False') }}"
                                              alt="Frame overview">
                                     {% else %}
                                         <img class="img-fluid image"
-                                             src="{{ url_for('get_image', image_name=name, dim=640) }}"
+                                             src="{{ url_for('get_aws_image', image_name=name, dim=640) }}"
                                              alt="Frame overview">
                                     {% endif %}
                                 </a>
@@ -79,15 +79,15 @@
                     <a class="bg-image" href="{{ url_for('relative_caption', model=model, dataset=dataset, reference_name=name) }}">
                                 {% if name == target_name and target_name!="" %}
                                     <img class="img-fluid image"
-                                         src="{{ url_for('get_image', image_name=name, dim=640, gt='True') }}"
+                                         src="{{ url_for('get_aws_image', image_name=name, dim=640, gt='True') }}"
                                          alt="Frame overview">
                                 {% elif name != target_name and target_name!="" %}
                                     <img class="img-fluid image"
-                                         src="{{ url_for('get_image', image_name=name, dim=640, gt='False') }}"
+                                         src="{{ url_for('get_aws_image', image_name=name, dim=640, gt='False') }}"
                                          alt="Frame overview">
                                 {% else %}
                                     <img class="img-fluid image"
-                                         src="{{ url_for('get_image', image_name=name, dim=640) }}"
+                                         src="{{ url_for('get_aws_image', image_name=name, dim=640) }}"
                                          alt="Frame overview">
                                 {% endif %}
                             </a>
