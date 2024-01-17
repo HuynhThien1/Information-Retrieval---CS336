@@ -1,9 +1,8 @@
-ARG TORCH_VERSION = 1.7.1
-FROM pytorch/pytorch:${TORCH_VERSION}-cpu
+# ARG TORCH_VERSION=1.7.1
+# FROM pytorch/pytorch:${TORCH_VERSION}
 
-# FROM python:3.8
+FROM python:3.8-slim-buster
 
-RUN pip install git+https://github.com/openai/CLIP.git
 # RUN python3 --version
 
 
@@ -11,7 +10,12 @@ WORKDIR /opt/irs
 
 COPY requirements.txt .
 
+RUN apt-get update && apt-get install -y git
+
 RUN pip install --no-cache-dir -r requirements.txt
+
+RUN pip install git+https://github.com/openai/CLIP.git
+
 
 COPY . .
 
@@ -23,5 +27,7 @@ VOLUME ["/opt/irs/static"]
 #       org.opencontainers.image.title="NekoImageGallery" \
 #       org.opencontainers.image.description="An AI-powered natural language & reverse Image Search Engine powered by CLIP & qdrant."
 
-ENTRYPOINT ["python", "app.py"]
+
+CMD [ "python", "-m" , "flask", "run", "--host=0.0.0.0"]
+# ENTRYPOINT ["python", "app.py"]
 # CMD [ "python", "app.py" ]

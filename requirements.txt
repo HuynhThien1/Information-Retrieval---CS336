@@ -1,9 +1,11 @@
+torch==1.7.1
+torchvision==0.8.2
+flask==2.0.2
 pydantic
 pydantic-settings
 clip
-torch==1.7.1
-torchvision==0.8.2
 numpy
-flask==2.0.2
 qdrant-client
 tqdm
+boto3
+requests

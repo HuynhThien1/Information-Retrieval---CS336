@@ -1,6 +1,6 @@
 
 from qdrant_client import qdrant_client, models
-from provider import db_handler
+from .provider import db_handler
 
 def creat_collection(host,port,name):
     client = qdrant_client.QdrantClient(host = host, port= port)
