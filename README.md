@@ -1,9 +1,9 @@
 <!-- Banner -->
 <p align="center">
-  <a href="https://hcmut.edu.vn/" title="Trường Đại học Bách khoa - ĐHQG-HCM" style="border: none;">
+  <a href="https://hcmut.edu.vn/" title="Trường Đại học Công Nghệ Thông Tin- ĐHQG-HCM" style="border: none;">
     <img
-      src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/HCMCUT.svg/500px-HCMCUT.svg.png"
-      alt="Trường Đại học Bách khoa - ĐHQG-HCM | Ho Chi Minh City University of Technology"
+      src="https://imgur.com/WmMnSRt"
+      alt="Trường Đại học Công Nghệ Thông Tin-- ĐHQG-HCM | Ho Chi Minh City University of Technology"
       width="220"
     />
   </a>
