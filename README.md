@@ -1,7 +1,11 @@
 <!-- Banner -->
 <p align="center">
-  <a href="https://www.uit.edu.vn/" title="Trường Đại học Công nghệ Thông tin" style="border: none;">
-    <img src="https://i.imgur.com/WmMnSRt.png" alt="Trường Đại học Công nghệ Thông tin | University of Information Technology">
+  <a href="https://hcmut.edu.vn/" title="Trường Đại học Bách khoa - ĐHQG-HCM" style="border: none;">
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/HCMCUT.svg/500px-HCMCUT.svg.png"
+      alt="Trường Đại học Bách khoa - ĐHQG-HCM | Ho Chi Minh City University of Technology"
+      width="220"
+    />
   </a>
 </p>
 <h1 align="center"><b>TRUY VẤN THÔNG TIN ĐA PHƯƠNG TIỆN</b></h>
